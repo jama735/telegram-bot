@@ -1,0 +1,167 @@
+import os
+import requests
+import time
+import json
+from flask import Flask
+
+app = Flask(__name__)
+
+# Atrof-muhit o'zgaruvchilari
+BOT_TOKEN = os.environ.get('BOT_TOKEN', '7746469124:AAEiRgDvqojgKuSeLQiu7L6mAPvZUW46yHU')
+WEB_APP_URL = os.environ.get('WEB_APP_URL', 'https://jama735.github.io/telegram-bot')
+
+class TelegramBot:
+    def __init__(self):
+        self.token = BOT_TOKEN
+        self.base_url = f"https://api.telegram.org/bot{BOT_TOKEN}"
+        self.web_app_url = WEB_APP_URL
+        
+    def set_menu_button(self):
+        """Menu button o'rnatish"""
+        url = f"{self.base_url}/setChatMenuButton"
+        params = {
+            'menu_button': json.dumps({
+                "type": "web_app",
+                "text": "🎮 Play Quiz",
+                "web_app": {"url": self.web_app_url}
+            })
+        }
+        try:
+            requests.post(url, json=params)
+            print("✅ Menu button o'rnatildi!")
+        except Exception as e:
+            print(f"❌ Menu button xatosi: {e}")
+    
+    def send_message(self, chat_id, text, reply_markup=None):
+        """Xabar yuborish"""
+        url = f"{self.base_url}/sendMessage"
+        params = {'chat_id': chat_id, 'text': text}
+        
+        if reply_markup:
+            params['reply_markup'] = json.dumps(reply_markup)
+        
+        try:
+            requests.post(url, json=params)
+            return True
+        except Exception as e:
+            print(f"Xabar yuborish xatosi: {e}")
+            return False
+    
+    def send_webapp_button(self, chat_id):
+        """Web App tugmasini yuborish"""
+        keyboard = {
+            "inline_keyboard": [[{
+                "text": "🎮 Mini App ni ochish",
+                "web_app": {"url": self.web_app_url}
+            }]]
+        }
+        self.send_message(chat_id, "Quyidagi tugma orqali Web App ni oching:", keyboard)
+    
+    def get_updates(self, offset=None):
+        """Yangiliklarni olish"""
+        url = f"{self.base_url}/getUpdates"
+        params = {'timeout': 10, 'offset': offset}
+        
+        try:
+            response = requests.get(url, params=params)
+            return response.json().get('result', [])
+        except:
+            return []
+    
+    def handle_webapp_data(self, chat_id, data):
+        """Web App ma'lumotlarini qayta ishlash"""
+        try:
+            web_data = json.loads(data)
+            
+            if web_data.get('action') == 'quiz_completed':
+                score = web_data.get('score', 0)
+                total = web_data.get('total', 1)
+                percentage = web_data.get('percentage', 0)
+                
+                message = f"""🎉 Quiz Tugadi!
+
+📊 Natijangiz:
+✅ To'g'ri javoblar: {score}/{total}
+📈 Foiz: {percentage}%
+
+Siz a'losiz! 🏆"""
+                
+                self.send_message(chat_id, message)
+                
+        except Exception as e:
+            print(f"Web App ma'lumot xatosi: {e}")
+    
+    def start_polling(self):
+        """Botni ishga tushirish"""
+        print("🤖 Bot Render da ishga tushdi...")
+        
+        # Menu button o'rnatish
+        self.set_menu_button()
+        
+        last_update_id = 0
+        
+        while True:
+            try:
+                updates = self.get_updates(last_update_id + 1)
+                
+                for update in updates:
+                    last_update_id = update['update_id']
+                    
+                    if 'message' in update:
+                        message = update['message']
+                        chat_id = message['chat']['id']
+                        text = message.get('text', '')
+                        
+                        if text == '/start':
+                            welcome = """🤖 Quiz Web App Botiga Xush Kelibsiz!
+
+🎮 Endi sizda Web App mavjud!
+
+Buyruqlar:
+/start - Boshlash
+/webapp - Web App ni ochish
+/menu - Menu yangilash"""
+                            
+                            self.send_webapp_button(chat_id)
+                            self.send_message(chat_id, welcome)
+                        
+                        elif text == '/webapp':
+                            self.send_webapp_button(chat_id)
+                        
+                        elif text == '/menu':
+                            self.set_menu_button()
+                            self.send_message(chat_id, "✅ Menu yangilandi!")
+                    
+                    # Web App ma'lumotlari
+                    if 'message' in update and 'web_app_data' in update['message']:
+                        web_data = update['message']['web_app_data']
+                        chat_id = update['message']['chat']['id']
+                        self.handle_webapp_data(chat_id, web_data['data'])
+                
+                time.sleep(1)
+                
+            except Exception as e:
+                print(f"Xatolik: {e}")
+                time.sleep(5)
+
+# Bot obyektini yaratish
+bot = TelegramBot()
+
+@app.route('/')
+def home():
+    return "Bot ishlayapti! Render.com 🚀"
+
+# Botni background da ishga tushirish
+def run_bot():
+    bot.start_polling()
+
+if __name__ == "__main__":
+    # Botni alohida thread da ishga tushirish
+    import threading
+    bot_thread = threading.Thread(target=run_bot)
+    bot_thread.daemon = True
+    bot_thread.start()
+    
+    # Flask server
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
