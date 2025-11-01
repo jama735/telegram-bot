@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: #333;
+        }
+        
+        .btn {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            width: 100%;
+            margin: 5px 0;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #0056cc;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .question {
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .option {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            padding: 12px 15px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .option:hover {
+            background: #e9ecef;
+            border-color: #007aff;
+        }
+        
+        .score {
+            font-size: 48px;
+            color: #007aff;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .result-text {
+            text-align: center;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Quiz Bot</h1>
+            <p>Test your knowledge!</p>
+        </div>
+        
+        <div id="mainMenu" class="card">
+            <h2>Menu</h2>
+            <button class="btn" onclick="startQuiz()">🚀 Start Quiz</button>
+            <button class="btn" onclick="showProfile()">👤 Profile</button>
+            <button class="btn" onclick="showAbout()">ℹ️ About</button>
+        </div>
+        
+        <div id="quizScreen" class="card" style="display: none;">
+            <div class="question" id="questionText"></div>
+            <div class="options" id="optionsContainer"></div>
+        </div>
+        
+        <div id="resultScreen" class="card" style="display: none;">
+            <div class="result-text">Quiz Completed!</div>
+            <div class="score" id="scoreText">0%</div>
+            <div class="result-text" id="resultMessage"></div>
+            <button class="btn" onclick="showMainMenu()">🏠 Main Menu</button>
+        </div>
+    </div>
+
+    <script>
+        // Telegram Web App initialization
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        // Quiz data
+        const quizData = [
+            {
+                question: "Pythonda chiqarish uchun qaysi funksiya ishlatiladi?",
+                options: ["print()", "echo()", "console.log()", "output()"],
+                correct: 0
+            },
+            {
+                question: "JavaScript qachon yaratilgan?",
+                options: ["1995", "1998", "2000", "2005"],
+                correct: 0
+            },
+            {
+                question: "HTML nimaning qisqartmasi?",
+                options: ["HyperText Markup Language", "HighTech Modern Language", "Hyper Transfer Markup Language"],
+                correct: 0
+            },
+            {
+                question: "CSS nimaning qisqartmasi?",
+                options: ["Cascading Style Sheets", "Computer Style Sheets", "Creative Style System"],
+                correct: 0
+            },
+            {
+                question: "Telegram kim tomonidan yaratilgan?",
+                options: ["Pavel Durov", "Mark Zuckerberg", "Elon Musk", "Bill Gates"],
+                correct: 0
+            }
+        ];
+        
+        let currentQuestion = 0;
+        let score = 0;
+        
+        function showScreen(screenId) {
+            document.getElementById('mainMenu').style.display = 'none';
+            document.getElementById('quizScreen').style.display = 'none';
+            document.getElementById('resultScreen').style.display = 'none';
+            document.getElementById(screenId).style.display = 'block';
+        }
+        
+        function startQuiz() {
+            currentQuestion = 0;
+            score = 0;
+            showQuestion();
+            showScreen('quizScreen');
+        }
+        
+        function showQuestion() {
+            const question = quizData[currentQuestion];
+            document.getElementById('questionText').textContent = question.question;
+            
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const optionElement = document.createElement('div');
+                optionElement.className = 'option';
+                optionElement.textContent = option;
+                optionElement.onclick = () => checkAnswer(index);
+                optionsContainer.appendChild(optionElement);
+            });
+        }
+        
+        function checkAnswer(selectedIndex) {
+            const question = quizData[currentQuestion];
+            
+            if (selectedIndex === question.correct) {
+                score++;
+            }
+            
+            currentQuestion++;
+            
+            if (currentQuestion < quizData.length) {
+                showQuestion();
+            } else {
+                showResult();
+            }
+        }
+        
+        function showResult() {
+            const percentage = Math.round((score / quizData.length) * 100);
+            document.getElementById('scoreText').textContent = `${percentage}%`;
+            
+            let message = "";
+            if (percentage >= 80) {
+                message = "🏆 A'lo! Siz juda yaxshi bilasiz!";
+            } else if (percentage >= 60) {
+                message = "✅ Yaxshi! Yaxshi bilim.";
+            } else if (percentage >= 40) {
+                message = "👌 O'rtacha. Yana o'qib ko'ring.";
+            } else {
+                message = "📚 Bilimingizni oshirish kerak.";
+            }
+            
+            document.getElementById('resultMessage').textContent = message;
+            showScreen('resultScreen');
+            
+            // Send data to bot
+            tg.sendData(JSON.stringify({
+                action: 'quiz_completed',
+                score: score,
+                total: quizData.length,
+                percentage: percentage
+            }));
+        }
+        
+        function showMainMenu() {
+            showScreen('mainMenu');
+        }
+        
+        function showProfile() {
+            tg.showAlert(`Salom! Men Telegram Web App man!\nSizning foydalanuvchi ID: ${tg.initDataUnsafe.user.id}`);
+        }
+        
+        function showAbout() {
+            tg.showAlert(`Bu Quiz Bot Web App.\n${quizData.length} ta savol bilan test qilish imkoniyati.`);
+        }
+        
+        // Initialize
+        showMainMenu();
+    </script>
+</body>
+</html>
